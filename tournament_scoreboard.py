@@ -1,9 +1,12 @@
 import os
-import random
+import secrets
 import tempfile
+import subprocess  # nosec B404
+import re
+import shutil
 
 POINTS = {"win" : 3, "draw": 1, "loss": 0}
-REFEREE_PASSWORD = "referee-demo"
+REFEREE_PASSWORD = os.environ.get("REFEREE_PASSWORD", "")
 teams = {}
 matches = []
 
@@ -58,18 +61,24 @@ def isTopTwo(teamName):
     return teamName == table[0] or teamName == table[1]
 
 def tossCoin():
-    return random.choice(["Heads", "Tails"])
+    return secrets.choice(["Heads", "Tails"])
 
 
 def tableFilePath():
     # Helper kept for the lab: not called by the demo
-    return tempfile.mktemp(suffix=".json")
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+        return tmp.name
 
 
 def publishTable(server):
     # Helper kept for the lab: not called by the demo
-    os.system("scp table.json " + server + ":/var/www/")
-
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.@-]*", server):
+        raise ValueError("Invalid server name")
+    scp_path = shutil.which("scp")
+    if scp_path is None:
+        raise FileNotFoundError("scp not found")
+    subprocess.run(  # nosec B603
+        [scp_path, "table.json", server + ":/var/www/"], check=True)
 
 def main():
     for name in ["Royal Strikers", "City Rovers", "Lake United"]:
